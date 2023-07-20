@@ -13,6 +13,7 @@ VERSION := $(shell git describe --exact-match 2>/dev/null || basename $$(git des
 BUILDDATE := $(shell TZ=GMT date '+%Y-%m-%dT%R:%S%z')
 
 GO_BUILD_LDFLAGS := \
+	-extldflags=-static \
 	-s \
 	-w \
 	-X $(REPO)/pkg/version.Progname=$(BIN) \
