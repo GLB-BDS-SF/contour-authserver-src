@@ -25,3 +25,8 @@ jobs:
       run: make lint
     - name: test
       run: make check
+    - uses: actions/upload-artifact@v3
+      with:
+        name: contour-authserver
+        path: bin/contour-authserver # or path/to/artifact      
+    
