@@ -28,5 +28,9 @@ jobs:
     - uses: actions/upload-artifact@v3
       with:
         name: contour-authserver
-        path: bin/contour-authserver # or path/to/artifact      
+        path: bin/contour-authserver # or path/to/artifact
+    - uses: ncipollo/release-action@v1
+      with:
+        artifacts: "bin/contour-authserver"
+        bodyFile: ""
     
