@@ -33,4 +33,5 @@ jobs:
       with:
         artifacts: "bin/contour-authserver"
         bodyFile: ""
+        tag: v3.6.0
     
