@@ -49,7 +49,7 @@ jobs:
   docker_workflow:
     needs:
       - compute_tag
-    uses: GLB-BDS-SF/docker-workflows/.github/workflows/docker-basic.yaml@v0.5
+    uses: GLB-BDS-SF/docker-workflows/.github/workflows/docker-basic.yaml@v0
     with:
       enable_dgoss_tests: true
       enable_hadolint: true
