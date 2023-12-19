@@ -1,0 +1,93 @@
+name: Docker publish
+on:
+  release:
+    types: [published]
+
+  workflow_dispatch:
+
+defaults:
+  run: 
+    shell: bash
+
+env:
+  IMAGE_NAME: contour-authserver
+
+jobs:
+  compute_tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.compute_tag.outputs.tag }}
+      image_name: ${{ env.IMAGE_NAME }}
+      commit_id: ${{ steps.get_commit.outputs.commit_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Image tag
+        id: compute_tag
+        run: |
+          env
+          if [ "${GITHUB_EVENT_NAME}" == 'pull_request' ]; then
+              tag=${GITHUB_HEAD_REF}
+          elif [ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]; then
+              tag=${GITHUB_REF_NAME}
+          else
+            tag=${GITHUB_REF_NAME}
+          fi
+
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+        # Get the commit sha used to tag the image
+        # It will be used to retrive the docker image from github repository
+      
+      - name: Get related commit sha
+        id: get_commit
+        env:
+          tag: ${{ steps.compute_tag.outputs.tag }}
+        run: |
+          commit_id=$(git rev-list -1 $tag)
+          echo "commit_id=$commit_id" >> $GITHUB_OUTPUT
+
+  docker_publish_gar:
+    uses: GLB-BDS-SF/docker-workflows/.github/workflows/docker-publish.yaml@v0
+    needs:
+      - compute_tag
+    with:
+      source_registry: ghcr.io
+      source_repository: ${{ github.repository_owner }}
+      source_registry_user: 'laurent.gil@atos.net'
+      source_tag: ${{ needs.compute_tag.outputs.tag }}
+      source_image: ${{ needs.compute_tag.outputs.image_name }}
+      destination_registry: 'europe-west4-docker.pkg.dev/bds-rd-sf2-dev/sf-gar-docker'
+      destination_tag: ${{ needs.compute_tag.outputs.tag }}
+      destination_registry_type: gar
+      enable_gh_repository: false
+    secrets:
+      # destination_registry_user:
+      # destination_registry_password:
+      source_registry_password: ${{ secrets.GH_TOKEN }}
+      gcp_identity_provider: ${{ secrets.GCP_IDENTITY_PROVIDER }}
+      gcp_service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+  # This job can't be launched in parallel of the docker_publish_gar
+  # because it will delete the artifact stored in github
+  docker_publish_artifactory:
+    uses: GLB-BDS-SF/docker-workflows/.github/workflows/docker-publish.yaml@v0
+    needs:
+      - compute_tag
+      - docker_publish_gar
+    with:
+      source_registry: ghcr.io
+      source_repository: ${{ github.repository_owner }}
+      source_registry_user: 'laurent.gil@atos.net'
+      source_tag: ${{ needs.compute_tag.outputs.tag }}
+      source_image: ${{ needs.compute_tag.outputs.image_name }}
+      destination_registry: ${{vars.RT7_URL}}/brsf-docker-release-local/brsf
+      destination_tag: ${{ needs.compute_tag.outputs.tag }}
+      destination_registry_type: basicAuth
+      enable_gh_repository: true
+    secrets:
+      destination_registry_user: ${{ secrets.RT7_USER }}
+      destination_registry_password: ${{ secrets.RT7_PWD }}
+      source_registry_password: ${{ secrets.GH_TOKEN }}
+      # gcp_identity_provider: ${{ secrets.GCP_IDENTITY_PROVIDER }}
+      # gcp_service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}

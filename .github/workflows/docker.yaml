@@ -1,0 +1,78 @@
+name: Docker package
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  workflow_dispatch:
+
+defaults:
+  run: 
+    shell: bash
+
+
+env:
+  IMAGE_NAME: contour-authserver
+
+permissions:
+  contents: read
+  packages: write 
+  security-events: write
+  actions: read
+  id-token: write
+
+jobs:
+  compute_tag:
+    runs-on: ubuntu-latest
+    outputs:
+      # tag: ${{ steps.compute_tag.outputs.patch }}
+      branch_name: ${{ steps.extract_branch.outputs.branch }}
+      image_name: ${{ env.IMAGE_NAME }}
+    steps:
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
+      # - name: Create tag
+      #   id: compute_tag
+      #   uses: GLB-BDS-SF/action-tag@v1
+      #   with:
+      #     create-changelog: false
+      #     push-commit: false
+      #     user-email: laurent.gil@atos.net
+      #     user-login: angegar
+      #     github-token:  ${{ secrets.GITHUB_TOKEN }}
+      #     debug-mode: false
+
+  docker_workflow:
+    needs:
+      - compute_tag
+    uses: GLB-BDS-SF/docker-workflows/.github/workflows/docker-basic.yaml@v0.5
+    with:
+      enable_dgoss_tests: true
+      enable_hadolint: true
+      enable_trivy: true
+      enable_sonar: true
+      enable_tag_release: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+      gh_registry: ghcr.io
+      gh_registry_repository: ${{ github.repository_owner }}
+      gh_user: 'laurent.gil@atos.net'
+      # build_input_args:
+      build_image_tag: ${{ needs.compute_tag.outputs.branch_name }}
+      build_context: .
+      build_dockerfile: Dockerfile
+      build_image_name: ${{ needs.compute_tag.outputs.image_name }}
+      build_target_platforms: 'linux/amd64' #'linux/amd64, linux/arm64'
+      sonar_url:  ${{ vars.SONAR_HOST_URL }}
+      sonar_project: GLB-BDS-SF:contour-authserver
+      sonar_project_root: .
+    secrets:
+      # secret_inputs:
+      gh_token: ${{ secrets.GH_TOKEN }}
+      gcp_identity_provider: ${{ secrets.GCP_IDENTITY_PROVIDER }}
+      gcp_service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      # artifactory_registry_user: ${{ secrets.RT7_USER }}
+      # artifactory_registry_password: ${{ secrets.RT7_PWD }}
+      sonar_token: ${{secrets.SONAR_TOKEN}}
